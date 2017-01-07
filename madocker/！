@@ -1,0 +1,7 @@
+FROM huifan/jieba:latest
+
+
+apt-get install pip
+pip install scrapy
+ENTRYPOINT ["python", "/"]
+EXPOSE 5006

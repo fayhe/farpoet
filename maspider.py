@@ -1,4 +1,12 @@
 import scrapy
+import sys
+sys.path.append('../')
+
+import jieba
+import jieba.analyse
+from optparse import OptionParser
+from objdict import ObjDict
+import json
 
 class BlogSpider(scrapy.Spider):
     name = 'blogspider'
@@ -8,12 +16,13 @@ class BlogSpider(scrapy.Spider):
     file_names = []
     urls = []
     file_names_index = 0
+    json_array = []
 
     def __init__(self, area=None, *args, **kwargs):
         super(BlogSpider, self).__init__(*args, **kwargs)
         start_urls = []
         
-        for num in range(1,50):
+        for num in range(1,2):
             start_urls.append('http://www.mafengwo.cn/group/s.php?q=%s&p=%d&t=info&kt=1' % (area,num))
         self.start_urls = start_urls
         self.name = '%s' % area
@@ -33,29 +42,62 @@ class BlogSpider(scrapy.Spider):
 	    yield scrapy.Request(response.urljoin(title.css('a ::attr(href)').extract_first()), callback=self.parse_youji, 
         meta={'url': title.css('a ::attr(href)').extract_first(),
               'file_name': title.css('a ::attr(href)').extract_first()[-12:],
-              'title': title.css('a ::text').extract_first().encode('utf-8')})
+              'title': title.css('a ::text').extract_first().encode('utf-8'),
+              'title_not_encode': title.css('a ::text').extract_first()})
+
+        
        # next_page = response.css('div.prev-post > a ::attr(href)').extract_first()
         #if next_page:
          #   yield scrapy.Request(response.urljoin(next_page), callback=self.parse)
 
     def parse_youji(self, response):
-        f = open( "/Users/fay/Downloads/hh/rawtext/" + response.meta['file_name']   ,'wb+')
+        f = open( "/Users/fay/Downloads/hh/chongsheng/" + response.meta['file_name']   ,'wb+')
+        data = ObjDict()
         ##print url        
         f.write(response.meta['url'] + "/***/\n" )
+        data.url = response.meta['url'] 
         ##print title         
         f.write(response.meta['title'] + "/***/\n" )
+        data.title = response.meta['title_not_encode'] 
         self.file_names_index = self.file_names_index + 1 ;
 
         ##print keyword
+        keyword = ""
+        keyword_not_encode = ""
         for tag in response.css('p._j_note_content>a ::text').extract():
             f.write(tag.encode('utf-8') + ",")
+            keyword = keyword + tag.encode('utf-8') + ","
+            keyword_not_encode = keyword_not_encode + tag + "," 
         f.write("/***/\n")
+        data.keyword = keyword_not_encode        
+
+        ##get text
+        text = "";
+        text_not_encode = "";
+        for youji in response.css('p._j_note_content::text').extract():
+                  ##print youji.encode('utf-8')
+                  text = text + youji.encode('utf-8')
+                  text_not_encode = text_not_encode + youji 
+                  ##f.write(youji.encode('utf-8') )
+                  
+
+        tags = jieba.analyse.extract_tags(text, topK=100, allowPOS={'n'})
+        print(",".join(tags).encode('utf-8') ) 
+
+        ##print tags
+        f.write(",".join(tags).encode('utf-8')+ "/***/\n" )  
+        data.tags = ",".join(tags)
 
         ##print text
-        for youji in response.css('p._j_note_content::text').extract():
-                  print youji.encode('utf-8')
-                  f.write(youji.encode('utf-8') )
-        f.close()           
-       
-            
+        f.write(text) 
+        data.text = text_not_encode
+        self.json_array.append(data)                        
+        
+        f.close() 
 
+    def closed(self, response):
+        json_data = json.dumps(self.json_array, ensure_ascii=False)
+        f = open( "/Users/fay/Downloads/hh/chongsheng_index"   ,'wb+')
+        f.write(json_data.encode('utf-8'))
+        f.close() 
+        ##print url        

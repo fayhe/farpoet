@@ -7,6 +7,8 @@ import jieba.analyse
 from optparse import OptionParser
 from objdict import ObjDict
 import json
+from elasticsearch import Elasticsearch
+from datetime import datetime
 
 class BlogSpider(scrapy.Spider):
     name = 'blogspider'
@@ -17,6 +19,7 @@ class BlogSpider(scrapy.Spider):
     urls = []
     file_names_index = 0
     json_array = []
+    es = Elasticsearch()
 
     def __init__(self, area=None, *args, **kwargs):
         super(BlogSpider, self).__init__(*args, **kwargs)
@@ -43,7 +46,8 @@ class BlogSpider(scrapy.Spider):
         meta={'url': title.css('a ::attr(href)').extract_first(),
               'file_name': title.css('a ::attr(href)').extract_first()[-12:],
               'title': title.css('a ::text').extract_first().encode('utf-8'),
-              'title_not_encode': title.css('a ::text').extract_first()})
+              'title_not_encode': title.css('a ::text').extract_first()
+              })
 
         
        # next_page = response.css('div.prev-post > a ::attr(href)').extract_first()
@@ -67,7 +71,8 @@ class BlogSpider(scrapy.Spider):
         for tag in response.css('p._j_note_content>a ::text').extract():
             f.write(tag.encode('utf-8') + ",")
             keyword = keyword + tag.encode('utf-8') + ","
-            keyword_not_encode = keyword_not_encode + tag + "," 
+            if (keyword_not_encode.find(tag) == -1 and tag.find('http') == -1 and tag.find('www') == -1):
+                keyword_not_encode = keyword_not_encode + tag + "," 
         f.write("/***/\n")
         data.keyword = keyword_not_encode        
 
@@ -91,7 +96,17 @@ class BlogSpider(scrapy.Spider):
         ##print text
         f.write(text) 
         data.text = text_not_encode
-        self.json_array.append(data)                        
+        self.json_array.append(data) 
+        doc = {
+                'url': data.url,
+                'title': data.title,
+                'timestamp': datetime.now(),                
+                #'timestamp': datetime.now(),'title': data.title,
+                'tags': data.tags,
+                'keywords': data.keyword,
+                'text': data.text
+            }
+        res = self.es.index(index="mafengwo", doc_type='chongsheng', id=response.meta['file_name'], body=doc)                       
         
         f.close() 
 

@@ -9,6 +9,8 @@ from objdict import ObjDict
 import json
 from elasticsearch import Elasticsearch
 from datetime import datetime
+from random import randint
+from time import sleep
 
 class BlogSpider(scrapy.Spider):
     name = 'blogspider'
@@ -25,7 +27,7 @@ class BlogSpider(scrapy.Spider):
         super(BlogSpider, self).__init__(*args, **kwargs)
         start_urls = []
         
-        for num in range(1,2):
+        for num in range(1,50):
             start_urls.append('http://www.mafengwo.cn/group/s.php?q=%s&p=%d&t=info&kt=1' % (area,num))
         self.start_urls = start_urls
         self.name = '%s' % area
@@ -55,7 +57,7 @@ class BlogSpider(scrapy.Spider):
          #   yield scrapy.Request(response.urljoin(next_page), callback=self.parse)
 
     def parse_youji(self, response):
-        f = open( "/Users/fay/Downloads/hh/chongsheng/" + response.meta['file_name']   ,'wb+')
+        f = open( "/Users/fay/Downloads/hh/beihaidao/" + response.meta['file_name']   ,'wb+')
         data = ObjDict()
         ##print url        
         f.write(response.meta['url'] + "/***/\n" )
@@ -74,7 +76,14 @@ class BlogSpider(scrapy.Spider):
             if (keyword_not_encode.find(tag) == -1 and tag.find('http') == -1 and tag.find('www') == -1):
                 keyword_not_encode = keyword_not_encode + tag + "," 
         f.write("/***/\n")
-        data.keyword = keyword_not_encode        
+        data.keyword = keyword_not_encode  
+
+        for create_time in response.css('li.time::text').extract():
+                  ##print youji.encode('utf-8')
+                  print "hhahahhaa!!!!!!"
+                  f.write(create_time.encode('utf-8') + "/***/\n")
+                  data.createtime = create_time 
+
 
         ##get text
         text = "";
@@ -87,7 +96,7 @@ class BlogSpider(scrapy.Spider):
                   
 
         tags = jieba.analyse.extract_tags(text, topK=100, allowPOS={'n'})
-        print(",".join(tags).encode('utf-8') ) 
+        ##print(",".join(tags).encode('utf-8') ) 
 
         ##print tags
         f.write(",".join(tags).encode('utf-8')+ "/***/\n" )  
@@ -96,23 +105,36 @@ class BlogSpider(scrapy.Spider):
         ##print text
         f.write(text) 
         data.text = text_not_encode
-        self.json_array.append(data) 
-        doc = {
-                'url': data.url,
-                'title': data.title,
-                'timestamp': datetime.now(),                
-                #'timestamp': datetime.now(),'title': data.title,
-                'tags': data.tags,
-                'keywords': data.keyword,
-                'text': data.text
-            }
-        res = self.es.index(index="mafengwo", doc_type='chongsheng', id=response.meta['file_name'], body=doc)                       
-        
+        self.json_array.append(data)
+        if data.has_key('createtime'):
+            print "hhahahhaa!!!!!!" 
+            doc = {
+                    'url': data.url,
+                    'title': data.title,
+                    'timestamp': datetime.now(), 
+                    'create_time': data.createtime,               
+                    #'timestamp': datetime.now(),'title': data.title,
+                    'tags': data.tags,
+                    'keywords': data.keyword,
+                    'text': data.text
+                }
+        else: 
+            doc = {
+                    'url': data.url,
+                    'title': data.title,
+                    'timestamp': datetime.now(),              
+                    #'timestamp': datetime.now(),'title': data.title,
+                    'tags': data.tags,
+                    'keywords': data.keyword,
+                    'text': data.text
+                }                   
+        res = self.es.index(index="mafengwo", doc_type='beihaidao', id=response.meta['file_name'], body=doc)                       
+        sleep(randint(10,30))
         f.close() 
 
     def closed(self, response):
         json_data = json.dumps(self.json_array, ensure_ascii=False)
-        f = open( "/Users/fay/Downloads/hh/chongsheng_index"   ,'wb+')
+        f = open( "/Users/fay/Downloads/hh/beihaidao_index"   ,'wb+')
         f.write(json_data.encode('utf-8'))
         f.close() 
         ##print url        

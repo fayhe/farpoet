@@ -1,0 +1,41 @@
+<html>
+<head>
+   <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
+  <script>
+
+
+   function generate_tags() {
+        $.ajax({
+            url: 'http://localhost:5000/gettags/beihaidao_index',
+            useDefaultXhrHeader: false,
+            type: 'POST',
+            success: function(response) {
+                document.getElementById('tag').innerHTML = response;
+                
+            },
+            error: function(error) {
+                alert(error);
+                 
+            }
+        });
+    };
+
+
+  function change_search(loc) {
+    alert(loc);
+    document.getElementById('search').src = "http://localhost:5601/app/kibana#/discover?&_a=(columns:!(create_time,title,tags,keywords,url),index:mafengwo,interval:auto,query:(query_string:(analyze_wildcard:!t,query:'_type:%20beihaidao%20AND%20" + loc + "')),sort:!(_score,desc))";
+  }
+  </script>
+</head>
+
+<body onload="generate_tags()">
+
+<div>
+
+  <div id="tag">tags are loading......</div>
+<!--<iframe width="500" height="100" src='http://localhost:5000/gettags/nala_index'>
+</iframe>-->
+</div>
+<iframe id='search' width="1024" height="768" src="http://localhost:5601/app/kibana#/discover?&_a=(columns:!(create_time,title,tags,keywords,url),index:mafengwo,interval:auto,query:(query_string:(analyze_wildcard:!t,query:'_type:%20beihaidao')),sort:!(_score,desc))"/>
+</body>
+</html>
